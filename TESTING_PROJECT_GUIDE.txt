@@ -1,0 +1,406 @@
+ONLINE BOUTIQUE TESTING PROJECT - DETAILED GUIDE
+================================================
+
+1. PURPOSE
+----------
+testing_project is an automated quality-assurance framework for the
+microservices-demo Online Boutique application.  It tests four layers:
+
+  1. Cloud infrastructure: Kubernetes deployment configuration, health checks,
+     security controls, and CPU/memory resource controls.
+  2. Microservices: gRPC service contracts and their API behaviour.
+  3. End-to-end UI: browser journeys through the Online Boutique frontend.
+  4. Performance: simulated concurrent shopper traffic.
+
+The framework can run in two modes.
+
+  * Live-environment mode: set BOUTIQUE_BASE_URL to a reachable deployed
+    Online Boutique frontend, for example a GKE, Minikube, Kind, or Docker
+    deployment.  Tests then target that frontend URL.
+  * Local mock mode: when that frontend is unavailable, conftest.py starts a
+    Flask frontend simulator on port 8080 and a mock gRPC server on port 50051.
+    This permits local/CI testing without deploying the full Kubernetes stack.
+
+
+2. HIGH-LEVEL STRUCTURE
+-----------------------
+Cloud-micrservice-google/
+|
+|-- microservices-demo/             The application and its cloud assets.
+|   |-- release/kubernetes-manifests.yaml
+|   |                                Main manifest inspected by cloud tests.
+|   |-- src/                         Application source and data used by mocks.
+|   |-- kubernetes-manifests/        Kubernetes manifests.
+|   |-- helm-chart/                  Helm deployment chart.
+|   `-- terraform/                   Cloud infrastructure definitions.
+|
+|-- testing_project/                The test framework described below.
+|-- pytest.ini                      Pytest discovery, markers, and terminal-output
+|                                  configuration.
+|-- requirements.txt                Python libraries required by the framework.
+
+
+3. TESTING_PROJECT STRUCTURE
+----------------------------
+testing_project/
+|
+|-- config.py
+|-- conftest.py
+|-- mock_services/
+|   |-- mock_frontend_server.py
+|   `-- mock_grpc_server.py
+|-- pages/
+|   |-- base_page.py
+|   |-- home_page.py
+|   |-- product_page.py
+|   |-- cart_page.py
+|   `-- order_page.py
+|-- performance/
+|   `-- locustfile.py
+|-- protos/
+|   |-- demo_pb2.py
+|   `-- demo_pb2_grpc.py
+`-- tests/
+    |-- cloud_infra/
+    |   |-- test_health_probes.py
+    |   |-- test_k8s_manifests.py
+    |   `-- test_security_resilience.py
+    |-- e2e_playwright/
+    |   |-- test_cart_workflow.py
+    |   |-- test_checkout_workflow.py
+    |   |-- test_currency_switch.py
+    |   |-- test_home_page.py
+    |   |-- test_product_flow.py
+    |   `-- test_responsive_ui.py
+    `-- microservices/
+        |-- test_cart_service.py
+        |-- test_catalog_service.py
+        |-- test_currency_service.py
+        |-- test_payment_service.py
+        |-- test_recommendation_service.py
+        `-- test_shipping_service.py
+
+
+4. FRAMEWORK AND SUPPORT FILES
+------------------------------
+
+pytest.ini
+  Defines where Pytest finds tests: testing_project/tests.  A test file must
+  start with test_, and a test function must start with test_.  It also enables
+  verbose terminal output (-v) and disables output capture (-s).  Its e2e,
+  grpc, and cloud markers classify test types.  The grpc marker describes the
+  protocol; the folder name is now microservices. No HTML report is generated.
+
+requirements.txt
+  Lists required libraries: pytest, Playwright and pytest-playwright for UI
+  automation, grpcio/protobuf for gRPC contracts, requests and PyYAML for
+  HTTP/YAML checks, Locust for load testing, and Flask
+  plus Werkzeug for the local frontend simulator.
+
+config.py
+  Central configuration module.  It calculates repository paths, chooses the
+  target frontend URL, gRPC host/port, browser headless mode, browser timeout,
+  and desktop/mobile viewports.  Defaults are:
+
+    Frontend: http://127.0.0.1:8080
+    gRPC:     127.0.0.1:50051
+    Browser:  headless
+
+  Environment variables can override the defaults.  BOUTIQUE_BASE_URL selects
+  a deployed frontend; BOUTIQUE_GRPC_HOST and BOUTIQUE_GRPC_PORT select the
+  gRPC endpoint; HEADLESS=false shows the Playwright browser window.
+
+conftest.py
+  Shared Pytest fixtures and test-session setup/teardown.
+
+  * It first requests <frontend>/_healthz.  If healthy, it uses the live
+    environment without starting local servers.
+  * If no live frontend is reachable, it starts mock gRPC services and the
+    mock Flask frontend, waits for readiness, then stops them at session end.
+  * base_url supplies the target frontend URL to UI/HTTP tests.
+  * playwright_instance, browser, context, and page create isolated Chromium
+    browser sessions for browser tests.
+  * mobile_page creates an iPhone-sized Playwright context.
+  * grpc_channel supplies an RPC channel to the configured gRPC endpoint.
+
+mock_services/mock_grpc_server.py
+  A local in-memory implementation of the Online Boutique gRPC interfaces.
+  It loads product and currency data when available and implements catalog,
+  cart, currency, recommendation, shipping, payment, checkout, and ad
+  services.  It is a lightweight test double, not the production service set.
+
+mock_services/mock_frontend_server.py
+  A Flask-based frontend simulator used in local mock mode.  It provides the
+  home, product, cart, currency, checkout, and /_healthz endpoints that the UI
+  tests and load tests exercise.
+
+protos/demo_pb2.py and protos/demo_pb2_grpc.py
+  Generated Python classes from the application's demo.proto contract.  They
+  define RPC request/response message types and client stubs used by the
+  microservice tests.  Generated files normally should not be hand-edited.
+
+pages/
+  Page Object Model (POM) layer.  It keeps Playwright selectors and UI actions
+  out of the test files, making the test intent easier to read and selectors
+  easier to maintain.
+
+  * base_page.py: common navigation, title, currency, cart-count, screenshot,
+    and cart-navigation actions.
+  * home_page.py: product-grid, product-name/price, and product-navigation
+    actions for the home page.
+  * product_page.py: product title, price, description, quantity, add-to-cart,
+    and recommendation controls.
+  * cart_page.py: cart-state checks, empty-cart action, total, checkout form,
+    and order submission.
+  * order_page.py: order-complete state, order ID, tracking ID, paid total, and
+    Continue Shopping action.
+
+performance/locustfile.py
+  Defines a BoutiqueShopper virtual user.  It waits one to three seconds
+  between actions and runs weighted tasks: browsing the homepage/health probe
+  (weight 4), viewing products (3), adding products to cart (2), changing
+  currency (1), and completing checkout (1).  Locust measures response time,
+  request count, and errors under concurrent traffic.
+
+
+5. CLOUD-INFRASTRUCTURE TESTS (7 TESTS)
+----------------------------------------
+These tests read microservices-demo/release/kubernetes-manifests.yaml.  They
+validate declared configuration; they do not deploy resources to Kubernetes.
+
+tests/cloud_infra/test_k8s_manifests.py
+
+  test_all_11_microservices_deployments_exist
+    Confirms Deployment resources exist for frontend, cartservice,
+    productcatalogservice, currencyservice, paymentservice, shippingservice,
+    emailservice, checkoutservice, recommendationservice, adservice, and
+    loadgenerator.  It detects an accidentally omitted microservice.
+
+  test_all_microservices_expose_k8s_services
+    Confirms the same core services have Kubernetes Service resources.
+    loadgenerator is correctly excluded because it is a client/load generator
+    rather than a service that receives application traffic.
+
+  test_container_image_tags_and_naming
+    Checks every Deployment image is pinned rather than using mutable :latest.
+    It also checks normal services use the microservices-demo image repository;
+    redis-cart is handled as an expected Redis-image exception.
+
+tests/cloud_infra/test_health_probes.py
+
+  test_frontend_health_probe_configuration
+    Checks the frontend Deployment has both readinessProbe and livenessProbe,
+    each using HTTP GET /_healthz on port 8080.  Readiness controls when a pod
+    receives traffic; liveness lets Kubernetes restart unhealthy containers.
+
+  test_backend_microservices_probes_exist
+    Confirms the nine long-running backend services define both readiness and
+    liveness probes.  loadgenerator is excluded because it is not a permanent
+    server process.
+
+tests/cloud_infra/test_security_resilience.py
+
+  test_least_privilege_security_context
+    For every Deployment, checks that the pod or its container uses
+    runAsNonRoot: true and that the container has
+    allowPrivilegeEscalation: false.  This reduces the impact of a container
+    compromise.
+
+  test_resource_requests_and_limits_defined
+    For every Deployment, checks resources.requests and resources.limits exist
+    and both contain CPU and memory values.  Requests guide scheduling; limits
+    bound consumption and help avoid noisy-neighbour failures.
+
+
+6. END-TO-END PLAYWRIGHT TESTS (14 TESTS)
+------------------------------------------
+These tests use a real Chromium browser against either the deployed frontend
+or the local Flask simulator.  They check what a shopper can see and do.
+
+tests/e2e_playwright/test_home_page.py
+
+  test_frontend_healthz_probe
+    Sends an HTTP GET to /_healthz and expects status 200 plus "ok" in the
+    response body.  This validates the frontend health endpoint directly.
+
+  test_homepage_loads_successfully
+    Opens the home page and checks the page title, logo, and Hot Products
+    heading are visible.
+
+  test_hot_products_catalog_display
+    Checks the product grid is non-empty, has matching counts of names and
+    prices, and every displayed price has a supported currency symbol.
+
+  test_initial_cart_badge
+    Checks a new browser session displays a cart link and starts with zero
+    items.
+
+tests/e2e_playwright/test_product_flow.py
+
+  test_view_product_detail_page
+    Opens the first home-page product and checks the detail page displays the
+    chosen product name, a price, a description, and Add To Cart.
+
+  test_product_quantity_selector
+    Opens a product, selects quantity 3, and confirms the select control
+    retains that value.
+
+  test_product_recommendations
+    Opens a product and checks the "You May Also Like" recommendations section
+    is visible, exercising the frontend's recommendation display.
+
+tests/e2e_playwright/test_cart_workflow.py
+
+  test_add_product_to_cart
+    Selects the first product, sets quantity 2, adds it to the cart, verifies
+    navigation to /cart, verifies the cart is not empty, verifies the product
+    appears, and checks the cart count equals 2.
+
+  test_empty_cart_functionality
+    Adds an item, verifies the cart is populated, empties it, then verifies the
+    empty-cart state and Continue Shopping button.
+
+tests/e2e_playwright/test_checkout_workflow.py
+
+  test_complete_checkout_user_journey
+    Performs the full shopper workflow: browse, select a product, add quantity
+    2, check cart details, enter address/payment information, submit checkout,
+    validate ORD- order ID, TRK- tracking ID, and paid total, then return to
+    the home page.  It is the broadest UI integration test.
+
+tests/e2e_playwright/test_currency_switch.py
+
+  test_currency_switch_to_eur
+    Selects EUR and checks one or more home-page prices show the Euro symbol.
+
+  test_currency_switch_to_jpy
+    Selects JPY and checks one or more home-page prices show the Yen symbol.
+
+  test_currency_persists_on_product_page
+    Selects EUR, opens a product, and verifies that its price remains in Euros
+    after navigation.
+
+tests/e2e_playwright/test_responsive_ui.py
+
+  test_mobile_viewport_layout
+    Uses the mobile Playwright fixture (375 x 667 viewport), confirms logo and
+    products render, opens a product, and checks the product name and Add To
+    Cart button remain visible.  It is a basic responsive/mobile-flow check.
+
+
+7. MICROSERVICE gRPC TESTS (13 TESTS)
+-------------------------------------
+These tests use the protocol contract directly rather than clicking through
+the browser.  They validate successful responses, expected data shape, and
+error status codes.
+
+tests/microservices/test_cart_service.py
+
+  test_cart_add_and_retrieve
+    Adds two units of a known product for a unique test user, retrieves that
+    user's cart, and checks the user ID, item presence, product ID, and
+    quantity.
+
+  test_cart_empty_action
+    Adds an item for a unique test user, calls EmptyCart, retrieves the cart,
+    and checks it contains no items.
+
+tests/microservices/test_catalog_service.py
+
+  test_list_products
+    Calls ListProducts and checks the catalog is non-empty.  It validates that
+    the first product has an ID, name, USD currency code, and non-negative
+    whole-unit price.
+
+  test_get_product_by_id
+    Reads a product ID from ListProducts, calls GetProduct for it, and verifies
+    the returned ID and name.
+
+  test_get_product_not_found
+    Requests a deliberately invalid SKU and expects the gRPC NOT_FOUND status.
+    This validates error behaviour as well as success behaviour.
+
+  test_search_products
+    Searches for "sun" and checks at least one returned product name or
+    description contains the query.
+
+tests/microservices/test_currency_service.py
+
+  test_get_supported_currencies
+    Calls GetSupportedCurrencies and checks that the list is non-empty and
+    includes USD, EUR, CAD, JPY, and GBP.
+
+  test_currency_conversion
+    Converts 100 USD to EUR and checks the response identifies EUR and has a
+    non-zero amount.
+
+tests/microservices/test_payment_service.py
+
+  test_charge_valid_credit_card
+    Sends valid payment details and checks the response has a TX- transaction
+    identifier.
+
+  test_charge_invalid_credit_card
+    Sends an intentionally short card number and expects the gRPC
+    INVALID_ARGUMENT status.
+
+tests/microservices/test_recommendation_service.py
+
+  test_list_recommendations
+    Requests recommendations while identifying an already selected product.
+    It checks recommendations are returned and the already selected product is
+    excluded when alternatives exist.
+
+tests/microservices/test_shipping_service.py
+
+  test_get_shipping_quote
+    Sends an address and two cart items, then checks the quote is in USD and
+    its amount is non-negative.
+
+  test_ship_order
+    Sends an address and item, then checks the shipping service returns a
+    TRK- tracking ID.
+
+
+8. RUNNING THE TESTS
+--------------------
+Run from the repository root.  Use the virtual environment's Python so the
+correct installed dependencies are used.
+
+  All automated tests:
+    .venv/bin/python -m pytest
+
+  Cloud-manifest tests only:
+    .venv/bin/python -m pytest testing_project/tests/cloud_infra/
+
+  Microservice gRPC tests only:
+    .venv/bin/python -m pytest testing_project/tests/microservices/
+
+  Browser/UI tests only:
+    .venv/bin/python -m pytest testing_project/tests/e2e_playwright/
+
+  Browser/UI tests with a visible browser:
+    HEADLESS=false .venv/bin/python -m pytest testing_project/tests/e2e_playwright/
+
+  One test file:
+    .venv/bin/python -m pytest testing_project/tests/microservices/test_cart_service.py
+
+  Load test without an HTML report (10 users, adding 2 users per second, for
+  15 seconds):
+    .venv/bin/locust -f testing_project/performance/locustfile.py \
+      --host=http://127.0.0.1:8080 --headless -u 10 -r 2 --run-time 15s
+
+Pytest and Locust results are shown directly in the terminal. Do not pass
+Locust's --html option unless you explicitly want a report file.
+
+
+9. IMPORTANT LIMITATIONS
+------------------------
+* Cloud-infrastructure tests validate YAML declarations.  They do not prove
+  that a cluster successfully deployed those declarations.
+* The local mock services test the included simulator's contract behaviour;
+  live mode is needed to validate a real deployed application.
+* The UI tests use the local simulator whenever no live frontend is reachable.
+* A local test run needs permission to bind ports 8080 and 50051 in mock mode.
+  If another program owns either port, stop that program or point the tests at
+  a reachable deployed environment through the configuration variables.

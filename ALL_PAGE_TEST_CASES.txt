@@ -1,0 +1,434 @@
+ONLINE BOUTIQUE - ALL PAGE TEST CASES
+=====================================
+
+Purpose
+-------
+This document is a single, page-by-page test suite for the Online Boutique
+frontend. It describes what a tester does, the expected result, and what each
+test proves. The cases apply to the local mock frontend and should also be run
+against a deployed Online Boutique environment.
+
+Test data used below
+--------------------
+* Valid product: any product shown on the Home page.
+* Valid quantity: 1, 2, 3, 4, 5, or 10.
+* Valid checkout data: a syntactically valid email, complete shipping address,
+  16-digit card number, valid expiry month/year, and 3- or 4-digit CVV.
+* Fresh session: a new browser context with no existing shop cookies.
+
+
+1. SHARED HEADER, NAVIGATION, AND HEALTH ENDPOINT
+==================================================
+
+TC-COM-01 - Frontend health endpoint is available
+Precondition: The frontend is running.
+Steps:
+  1. Send GET /_healthz.
+Expected result: HTTP status is 200 and the response contains "ok".
+What this test does: It verifies the lightweight endpoint used by Kubernetes
+readiness and liveness probes. A passing result means the frontend can report
+that it is available to receive traffic; it does not prove every downstream
+microservice is healthy.
+
+TC-COM-02 - Header branding is visible on every shopper page
+Precondition: Open Home, Product, Cart, and Order Confirmation pages.
+Steps:
+  1. Inspect the header on each page.
+Expected result: The Online Boutique logo is visible and its link points to
+the Home page.
+What this test does: It confirms a user has a consistent visual identity and a
+reliable way to return to browsing from any stage of the shopping journey.
+
+TC-COM-03 - Header cart link opens the current cart
+Precondition: Open any shopper page.
+Steps:
+  1. Select the cart icon in the header.
+Expected result: The browser navigates to /cart and shows the cart associated
+with the current browser session.
+What this test does: It checks that the shared cart navigation works regardless
+of where the shopper is in the site and does not lose the session cart.
+
+TC-COM-04 - Currency selector is available and retains the selected value
+Precondition: Open any shopper page.
+Steps:
+  1. Choose EUR in the header currency selector.
+  2. Navigate to another page through a product or cart link.
+Expected result: EUR remains selected after navigation and monetary values use
+the Euro symbol where prices are displayed.
+What this test does: It verifies that currency preference is stored for the
+session (normally in a cookie) and is applied consistently instead of only
+changing the page on which it was selected.
+
+
+2. HOME PAGE (/)
+================
+
+TC-HOM-01 - Home page loads with core branding and catalog heading
+Precondition: Fresh browser session.
+Steps:
+  1. Open /.
+Expected result: The document title contains "Online Boutique" (or the live
+environment's Cymbal title), the logo is visible, and "Hot Products" appears.
+What this test does: It is a smoke test for the main customer entry page. It
+detects a broken route, failed page rendering, missing branding asset, or a
+missing catalog section.
+
+TC-HOM-02 - Hot Products catalog contains complete product cards
+Precondition: Home page is loaded.
+Steps:
+  1. Count the product cards.
+  2. For each card, inspect its product name and price.
+Expected result: At least one card is displayed; every card has a non-empty
+name and a price containing a supported currency symbol ($, EUR symbol, Yen
+symbol, Pound symbol, or Lira symbol). The name count and price count match the
+number of cards.
+What this test does: It checks that catalog data reaches the UI in a usable
+form. Matching counts guard against partially rendered cards where a name or
+price is missing.
+
+TC-HOM-03 - Product card opens its matching product detail page
+Precondition: Home page is loaded.
+Steps:
+  1. Record the first product card's name.
+  2. Select that card or its product link.
+Expected result: A product detail page opens and shows the same product name.
+What this test does: It verifies the link contains the correct product identity
+and that catalog navigation does not route the shopper to the wrong item.
+
+TC-HOM-04 - New shopper starts with an empty cart
+Precondition: Fresh browser session.
+Steps:
+  1. Open /.
+  2. Inspect the header cart indicator.
+Expected result: The cart link is visible and the displayed item count is zero
+(or no numeric badge is displayed, which represents zero in this UI).
+What this test does: It confirms a newly created session does not inherit
+another shopper's cart and establishes a clean starting state for workflows.
+
+TC-HOM-05 - Currency change updates home-page prices
+Precondition: Home page is loaded with prices visible.
+Steps:
+  1. Select EUR; inspect product prices.
+  2. Repeat with JPY.
+Expected result: At least one price shows € after selecting EUR, and at least
+one price shows ¥ after selecting JPY.
+What this test does: It verifies that the currency selection triggers a
+re-render using converted values and the correct currency presentation.
+
+
+3. PRODUCT DETAIL PAGE (/product/<product-id>)
+===============================================
+
+TC-PRD-01 - Product detail data is complete and matches the selected item
+Precondition: Open a product from the Home page.
+Steps:
+  1. Compare the product name with the name recorded on the Home page.
+  2. Inspect the title, price, description, image, and Add To Cart control.
+Expected result: The selected product name is shown; price and description are
+non-empty; the product image and Add To Cart button are visible.
+What this test does: It validates the product-detail rendering contract. It
+ensures customers receive sufficient, correct information before purchasing.
+
+TC-PRD-02 - Quantity selector accepts supported quantities
+Precondition: Product detail page is loaded.
+Steps:
+  1. Open the quantity selector.
+  2. Select quantity 3.
+Expected result: The selector offers the configured quantities (1, 2, 3, 4, 5,
+and 10) and retains "3" as its selected value.
+What this test does: It confirms the shopper can choose an order quantity and
+that the form will submit the selected quantity rather than silently resetting
+to one.
+
+TC-PRD-03 - Recommendations are displayed
+Precondition: Product detail page is loaded.
+Steps:
+  1. Scroll to "You May Also Like".
+Expected result: The recommendations section is visible and contains
+alternative product links when catalog alternatives exist.
+What this test does: It checks that the recommendation output is rendered in
+the UI and gives shoppers a path to discover related products.
+
+TC-PRD-04 - Selected currency persists onto product detail pricing
+Precondition: On Home, choose EUR.
+Steps:
+  1. Open any product detail page.
+  2. Inspect its price.
+Expected result: The product price uses € and the header still selects EUR.
+What this test does: It specifically checks cross-page currency persistence;
+the preference must be applied to product prices as well as catalog prices.
+
+TC-PRD-05 - Adding a selected quantity creates a cart entry
+Precondition: Fresh session, product page loaded.
+Steps:
+  1. Select quantity 2.
+  2. Select Add To Cart.
+Expected result: The browser reaches /cart, the cart is not empty, the chosen
+product is listed, and the cart count is 2.
+What this test does: It verifies the essential product-to-cart handoff:
+product ID, selected quantity, session identity, and post-submit navigation.
+
+TC-PRD-06 - Invalid product URL is handled safely
+Precondition: Frontend is running.
+Steps:
+  1. Open /product/not-a-real-product-id.
+Expected result: A clear not-found response/page is returned (404 in the local
+simulator); the application does not show another product or a server error.
+What this test does: It checks that invalid catalog identifiers are handled
+predictably and do not expose an unhandled exception.
+
+
+4. CART PAGE (/cart)
+====================
+
+TC-CAR-01 - Empty cart state explains next action
+Precondition: Fresh session or a cart that was emptied.
+Steps:
+  1. Open /cart.
+Expected result: "Your shopping cart is empty!" is visible and a Continue
+Shopping link is available.
+What this test does: It verifies the empty-state design. Shoppers are clearly
+told why checkout controls are absent and are given a recovery path to browse.
+
+TC-CAR-02 - Added product, quantity, and cart count are correct
+Precondition: Add quantity 2 of a product from its detail page.
+Steps:
+  1. Inspect /cart.
+Expected result: The selected product appears in the cart summary, its quantity
+is 2, the cart heading/count represents 2 items, and the cart is not empty.
+What this test does: It confirms cart state survives navigation and that the
+quantity is counted as item units, not merely as one product line.
+
+TC-CAR-03 - Cart price summary includes shipping and total
+Precondition: Cart contains at least one valid product.
+Steps:
+  1. Inspect item line price, shipping cost, currency label, and total.
+Expected result: Every amount is present in the selected currency; shipping is
+shown and the total is a non-empty monetary amount.
+What this test does: It validates that the customer sees the cost components
+needed to make an informed purchase. In the local simulator the standard
+shipping amount is USD 8.99 before conversion.
+
+TC-CAR-04 - Empty Cart clears all session cart items
+Precondition: Cart contains one or more items.
+Steps:
+  1. Select Empty Cart.
+Expected result: The cart returns to its empty state, no item rows remain, and
+Continue Shopping is visible. The header count returns to zero.
+What this test does: It checks the destructive cart action removes the current
+session's contents rather than merely hiding them in the page.
+
+TC-CAR-05 - Checkout form exposes all required shipping and payment fields
+Precondition: Cart contains at least one item.
+Steps:
+  1. Inspect the checkout form.
+Expected result: Email, street, city, state, ZIP/postal code, country, card
+number, expiry month, expiry year, CVV, and Place Order are visible. Required
+fields are marked required; ZIP and card number enforce their stated numeric
+patterns in the local frontend.
+What this test does: It verifies the checkout form collects the information
+needed by the shipping and payment stages and enables browser-side validation.
+
+TC-CAR-06 - Valid checkout proceeds to confirmation
+Precondition: Cart contains a product and valid checkout data is available.
+Steps:
+  1. Fill every checkout field with valid data.
+  2. Select Place Order.
+Expected result: An order confirmation page appears.
+What this test does: It is the form-submission portion of the purchase journey.
+It verifies valid shopper input is accepted and handed to checkout processing.
+
+TC-CAR-07 - Required-field validation prevents an incomplete order
+Precondition: Cart contains at least one item.
+Steps:
+  1. Clear a required field such as email or card number.
+  2. Select Place Order.
+Expected result: Browser validation blocks submission and identifies the
+incomplete/invalid field; no confirmation page is shown.
+What this test does: It verifies invalid or incomplete checkout data is caught
+before an order is attempted. For a live backend, supplement this with server-
+side validation tests because client-side checks alone can be bypassed.
+
+
+5. ORDER CONFIRMATION PAGE
+==========================
+
+TC-ORD-01 - Successful order shows a complete confirmation
+Precondition: Submit a populated cart with valid checkout details.
+Steps:
+  1. Inspect the resulting confirmation page.
+Expected result: "Your order is complete!" is visible along with a non-empty
+order ID, tracking ID, and total paid.
+What this test does: It proves checkout reached a customer-visible successful
+state and supplies the references the customer needs after payment.
+
+TC-ORD-02 - Confirmation identifiers use expected formats
+Precondition: Successful order confirmation is displayed.
+Steps:
+  1. Read Confirmation # and Tracking #.
+Expected result: The order ID starts with "ORD-" and the tracking ID starts
+with "TRK-".
+What this test does: It validates the UI is displaying values from the order
+and shipping stages in their expected, recognizable formats. It does not try
+to predict the random identifier suffix.
+
+TC-ORD-03 - Paid total is displayed in the shopper's chosen currency
+Precondition: Choose a non-USD currency, add an item, and complete checkout.
+Steps:
+  1. Inspect Total Paid on the confirmation page.
+Expected result: The total is non-empty and uses the selected currency symbol.
+What this test does: It checks currency preference is retained through the
+final checkout transition, avoiding a discrepancy between cart total and paid
+total.
+
+TC-ORD-04 - Checkout clears the cart after a successful order
+Precondition: Complete a successful checkout.
+Steps:
+  1. Select the header cart link after confirmation.
+Expected result: The cart is empty and its count is zero.
+What this test does: It verifies the same cart is not accidentally purchasable
+twice after a completed order.
+
+TC-ORD-05 - Continue Shopping returns the shopper to Home
+Precondition: Order confirmation page is displayed.
+Steps:
+  1. Select Continue Shopping.
+Expected result: The browser returns to / and the Hot Products catalog is
+visible.
+What this test does: It verifies the post-purchase recovery path and lets a
+shopper begin another browsing session without using browser navigation.
+
+
+6. RESPONSIVE USER INTERFACE
+============================
+
+TC-RWD-01 - Essential browsing and purchase controls work on a mobile viewport
+Precondition: Use a 375 x 667 viewport (for example, iPhone-sized emulation).
+Steps:
+  1. Open Home and confirm the logo and product cards are visible.
+  2. Open a product card.
+  3. Confirm product name and Add To Cart are visible and selectable.
+Expected result: The pages render within the mobile viewport without hiding the
+essential navigation, product information, or purchase control.
+What this test does: It is a responsive smoke test. It confirms that a narrow
+screen can still complete the primary browse-to-product flow, rather than
+testing pixel-perfect layout.
+
+
+7. CLOUD INFRASTRUCTURE AND KUBERNETES CONFIGURATION
+====================================================
+
+Scope
+-----
+These tests inspect the declared Kubernetes configuration in
+microservices-demo/release/kubernetes-manifests.yaml. They validate deployment
+configuration before release; they do not by themselves prove that pods have
+started successfully in a real cluster.
+
+TC-CLD-01 - All required microservice Deployments are declared
+Precondition: The release Kubernetes manifest is available.
+Steps:
+  1. Parse the manifest and collect every Deployment resource name.
+  2. Check for frontend, cartservice, productcatalogservice, currencyservice,
+     paymentservice, shippingservice, emailservice, checkoutservice,
+     recommendationservice, adservice, and loadgenerator.
+Expected result: All 11 named Deployments exist.
+What this test does: It prevents a release from accidentally omitting an
+application component. Without a Deployment, Kubernetes has no instruction to
+create pods for that microservice.
+
+TC-CLD-02 - Network-facing microservices have Kubernetes Services
+Precondition: The release Kubernetes manifest is available.
+Steps:
+  1. Parse the manifest and collect every Service resource name.
+  2. Check that frontend and the nine backend server microservices have a
+     corresponding Service.
+Expected result: Each traffic-receiving application component has a Service.
+The load generator is excluded because it initiates traffic and is not a server
+that needs an application Service.
+What this test does: It verifies service discovery and stable in-cluster
+network endpoints are declared. A Deployment without a Service may run pods
+that other components cannot reliably locate.
+
+TC-CLD-03 - Container images are explicitly versioned and correctly named
+Precondition: The release Kubernetes manifest is available.
+Steps:
+  1. Inspect every Deployment container image.
+  2. Confirm each image has a tag and does not use the mutable :latest tag.
+  3. Confirm application services use the microservices-demo image repository;
+     allow the expected redis-cart Redis-image exception.
+Expected result: All images are pinned to explicit versions and use expected
+repositories.
+What this test does: It improves release repeatability and auditability. A
+mutable latest image can cause the same manifest to run different code at
+different times.
+
+TC-CLD-04 - Frontend has correctly configured readiness and liveness probes
+Precondition: The frontend Deployment is declared.
+Steps:
+  1. Inspect the frontend container's readinessProbe and livenessProbe.
+  2. Check that both use HTTP GET /_healthz on port 8080.
+Expected result: Both probes exist and use the stated endpoint and port.
+What this test does: It verifies Kubernetes will wait to route traffic until
+the frontend is ready and can restart it when it becomes unhealthy. It also
+aligns the deployment configuration with TC-COM-01.
+
+TC-CLD-05 - Backend services define readiness and liveness probes
+Precondition: The release Kubernetes manifest is available.
+Steps:
+  1. Inspect frontend-independent backend Deployments: cartservice,
+     productcatalogservice, currencyservice, paymentservice, shippingservice,
+     emailservice, checkoutservice, recommendationservice, and adservice.
+  2. Confirm each contains both readinessProbe and livenessProbe.
+Expected result: Every listed long-running backend service has both probes.
+The loadgenerator is excluded because it is a workload client, not a permanent
+server process.
+What this test does: It confirms Kubernetes can remove unready backend pods
+from service endpoints and recover containers that stop responding.
+
+TC-CLD-06 - Deployments use least-privilege container security settings
+Precondition: The release Kubernetes manifest is available.
+Steps:
+  1. Inspect the pod-level or container-level security context for every
+     Deployment.
+  2. Confirm runAsNonRoot is true.
+  3. Confirm allowPrivilegeEscalation is false for every container.
+Expected result: Every Deployment meets both least-privilege conditions.
+What this test does: It reduces the impact of a compromised application
+container by preventing root execution and privilege escalation inside it.
+
+TC-CLD-07 - Deployments declare CPU and memory requests and limits
+Precondition: The release Kubernetes manifest is available.
+Steps:
+  1. Inspect resource settings on every Deployment container.
+  2. Confirm resources.requests and resources.limits both exist.
+  3. Confirm CPU and memory values are present in each section.
+Expected result: All deployed workloads declare CPU and memory requests and
+limits.
+What this test does: Requests help Kubernetes make sound scheduling decisions;
+limits cap resource consumption and reduce noisy-neighbour failures or runaway
+containers affecting other services.
+
+
+FULL END-TO-END REGRESSION JOURNEY
+==================================
+
+TC-E2E-01 - Complete shopper purchase
+Precondition: Fresh browser session and frontend is healthy.
+Steps:
+  1. Open Home and verify products are shown.
+  2. Open a product, choose quantity 2, and add it to the cart.
+  3. Verify the product, quantity, shipping, and total in the cart.
+  4. Enter valid shipping and payment details.
+  5. Place the order.
+  6. Verify order-complete message, ORD- confirmation ID, TRK- tracking ID,
+     and paid total.
+  7. Select Continue Shopping and verify Home opens.
+Expected result: Every transition succeeds with the same shopper session and
+the final confirmation contains the expected purchase references.
+What this test does: This is the highest-value regression scenario. It tests
+the shopper-visible integration between catalog, cart, recommendations,
+currency, shipping, payment, checkout, and order confirmation behavior.
+
+
+gRPC is nothing but the google remote procedure call nothing but the microservices that is included in the cloud testing itself.

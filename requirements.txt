@@ -1,0 +1,92 @@
+# =============================================================================
+# Online Boutique - Testing Framework Requirements
+# =============================================================================
+#
+# Install all dependencies with:
+#     .venv/bin/python -m pip install -r requirements.txt
+#
+# The packages are grouped by the type of testing they support. A package is
+# installed only when this file is processed; it is used later when the related
+# test command runs.
+
+# -----------------------------------------------------------------------------
+# 1. TEST RUNNER - used by every automated test suite
+# -----------------------------------------------------------------------------
+# Pytest discovers files named test_*.py under testing_project/tests, executes
+# their test_* functions, manages fixtures from conftest.py, and prints pass,
+# fail, and error results in the terminal.
+# Used when: .venv/bin/python -m pytest
+pytest>=8.0.0
+
+# -----------------------------------------------------------------------------
+# 2. BROWSER / END-TO-END UI TESTING
+# -----------------------------------------------------------------------------
+# Playwright controls Chromium like a real shopper: it opens pages, clicks
+# products, changes currency, fills checkout fields, and checks visible UI.
+# Used by: testing_project/tests/e2e_playwright/ and testing_project/pages/
+# Used when: running the E2E suite or the full Pytest suite.
+playwright>=1.40.0
+
+# Pytest plugin that integrates Playwright with Pytest. It provides compatible
+# browser-test support and works alongside this project's browser/page fixtures
+# in conftest.py.
+# Used when: Pytest collects and runs Playwright E2E tests.
+pytest-playwright>=0.5.0
+
+# -----------------------------------------------------------------------------
+# 3. MICROSERVICE gRPC CONTRACT TESTING
+# -----------------------------------------------------------------------------
+# gRPC runtime for opening channels and invoking RPC methods such as AddItem,
+# ListProducts, Convert, Charge, GetQuote, and ListRecommendations.
+# Used by: testing_project/tests/microservices/, conftest.py, and mock_services/
+# Used when: running microservice gRPC tests or local mock-mode tests.
+grpcio>=1.60.0
+
+# gRPC protocol-buffer compiler helpers. It is required when generating or
+# regenerating the Python gRPC bindings from demo.proto; normal test execution
+# uses the already-generated files in testing_project/protos/.
+# Used when: changing a .proto contract and regenerating client/server classes.
+grpcio-tools>=1.60.0
+
+# Protocol Buffers runtime. It represents typed gRPC messages such as Product,
+# CartItem, Money, Address, and payment/shipping request and response objects.
+# Used by: testing_project/protos/ and all microservice contract tests.
+protobuf>=4.25.0
+
+# -----------------------------------------------------------------------------
+# 4. CLOUD-INFRASTRUCTURE AND HTTP HEALTH TESTING
+# -----------------------------------------------------------------------------
+# HTTP client for checking whether the frontend is reachable and for validating
+# the /_healthz endpoint before and during browser-based testing.
+# Used by: conftest.py and tests/e2e_playwright/test_home_page.py
+requests>=2.31.0
+
+# YAML parser used to read Kubernetes manifests and validate Deployments,
+# Services, readiness/liveness probes, security settings, and CPU/memory limits.
+# Used by: testing_project/tests/cloud_infra/
+pyyaml>=6.0.1
+
+# -----------------------------------------------------------------------------
+# 5. PERFORMANCE / LOAD TESTING
+# -----------------------------------------------------------------------------
+# Load-testing framework that creates simulated BoutiqueShopper users and
+# measures request count, response time, and errors under concurrent traffic.
+# Used by: testing_project/performance/locustfile.py
+# Used when: .venv/bin/locust -f testing_project/performance/locustfile.py ...
+locust>=2.20.0
+
+# -----------------------------------------------------------------------------
+# 6. LOCAL TEST ENVIRONMENT (USED WHEN NO LIVE DEPLOYMENT IS AVAILABLE)
+# -----------------------------------------------------------------------------
+# Lightweight web framework that runs the local Online Boutique frontend
+# simulator. It supplies pages, cart/checkout routes, currency changes, and
+# /_healthz without requiring a Kubernetes deployment.
+# Used by: testing_project/mock_services/mock_frontend_server.py
+# Used when: BOUTIQUE_BASE_URL is not reachable during a Pytest session.
+flask>=3.0.0
+
+# WSGI server utilities used to host the local Flask frontend simulator in a
+# background thread, then shut it down cleanly after the test session.
+# Used by: ServerThread in testing_project/conftest.py
+# Used when: local mock mode starts the simulated frontend on port 8080.
+werkzeug>=3.0.0
