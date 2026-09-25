@@ -1,7 +1,3 @@
-"""
-Cloud Infrastructure Tests: Microservices Health, Readiness & Liveness Probes.
-Validates self-healing and zero-downtime rolling update specifications in Kubernetes.
-"""
 import yaml
 import pytest
 from testing_project.config import K8S_MANIFEST_PATH

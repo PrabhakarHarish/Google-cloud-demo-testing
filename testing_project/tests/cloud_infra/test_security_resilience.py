@@ -18,12 +18,7 @@ def deployments():
 
 
 def test_least_privilege_security_context(deployments):
-    """
-    Verifies that microservices enforce cloud security best practices:
-    1. runAsNonRoot is True
-    2. allowPrivilegeEscalation is False
-    3. Drop all kernel capabilities
-    """
+
     for doc in deployments:
         name = doc["metadata"]["name"]
         pod_spec = doc["spec"]["template"]["spec"]
@@ -42,10 +37,7 @@ def test_least_privilege_security_context(deployments):
 
 
 def test_resource_requests_and_limits_defined(deployments):
-    """
-    Verifies that microservices have bounded CPU and Memory requests/limits
-    to prevent noisy-neighbor starvation and enable Kubernetes HPA auto-scaling.
-    """
+
     for doc in deployments:
         name = doc["metadata"]["name"]
         container = doc["spec"]["template"]["spec"]["containers"][0]

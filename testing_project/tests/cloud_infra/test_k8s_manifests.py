@@ -8,18 +8,8 @@ from testing_project.config import K8S_MANIFEST_PATH
 
 
 EXPECTED_MICROSERVICES = {
-    "frontend",
-    "cartservice",
-    "productcatalogservice",
-    "currencyservice",
-    "paymentservice",
-    "shippingservice",
-    "emailservice",
-    "checkoutservice",
-    "recommendationservice",
-    "adservice",
-    "loadgenerator"
-}
+    "frontend","cartservice","productcatalogservice","currencyservice","paymentservice","shippingservice","emailservice",
+    "checkoutservice","recommendationservice","adservice","loadgenerator" }
 
 
 @pytest.fixture(scope="module")

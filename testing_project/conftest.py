@@ -15,12 +15,7 @@ from werkzeug.serving import make_server
 from playwright.sync_api import sync_playwright
 
 from testing_project.config import (
-    FRONTEND_URL,
-    GRPC_HOST,
-    GRPC_PORT,
-    HEADLESS,
-    DEFAULT_VIEWPORT,
-    BROWSER_TIMEOUT
+    FRONTEND_URL, GRPC_HOST, GRPC_PORT, HEADLESS, DEFAULT_VIEWPORT, BROWSER_TIMEOUT, SLOW_MO
 )
 from testing_project.mock_services.mock_grpc_server import create_grpc_server
 from testing_project.mock_services.mock_frontend_server import create_frontend_app
@@ -121,6 +116,7 @@ def playwright_instance():
 def browser(playwright_instance):
     browser = playwright_instance.chromium.launch(
         headless=HEADLESS,
+        slow_mo=SLOW_MO,
         args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     )
     yield browser
@@ -169,5 +165,5 @@ def grpc_channel():
     yield channel
     channel.close()
 
-# the configuration above allows the tests to setup everything needed before the tests run, such as the browser, frontend URL and microservice connection.
+# the configuration above allows the tests to set-up everything needed before the tests run, such as the browser, frontend URL and microservice connection.
 # it also starts the local mock services if needed and cleans them up after all the tests finish.

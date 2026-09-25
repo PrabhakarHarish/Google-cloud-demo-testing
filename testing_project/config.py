@@ -25,7 +25,8 @@ AD_SERVICE_ADDR = os.getenv("AD_SERVICE_ADDR", f"{GRPC_HOST}:{GRPC_PORT}")
 
 # Playwright Browser Settings
 HEADLESS = os.getenv("HEADLESS", "true").lower() in ("true", "1", "yes")
-BROWSER_TIMEOUT = int(os.getenv("BROWSER_TIMEOUT", "10000")) # ms
+SLOW_MO = int(os.getenv("SLOW_MO", "0" if HEADLESS else "1000")) # ms delay between actions
+BROWSER_TIMEOUT = int(os.getenv("BROWSER_TIMEOUT", "20000")) # ms
 DEFAULT_VIEWPORT = {"width": 1280, "height": 800}
 MOBILE_VIEWPORT = {"width": 375, "height": 667}
 
