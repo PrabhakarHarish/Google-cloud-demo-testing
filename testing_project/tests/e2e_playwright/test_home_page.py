@@ -41,6 +41,12 @@ def test_hot_products_catalog_display(page: Page, base_url):
         assert len(name) > 0, "Product name should not be empty"
         assert any(sym in price for sym in ["$", "€", "¥", "£", "₺"]), f"Price {price} missing currency symbol"
 
+    name_to_price = dict(zip(names, prices))
+    if "Sunglasses" in name_to_price:
+        assert "$19.99" in name_to_price["Sunglasses"], (
+            f"Expected Sunglasses to display as $19.99 in default USD, got: {name_to_price['Sunglasses']}"
+        )
+
 
 def test_initial_cart_badge(page: Page, base_url):
     """Verifies that the cart icon is present and starts with 0 items for a new session."""

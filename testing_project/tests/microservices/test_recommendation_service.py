@@ -6,9 +6,15 @@ import pytest
 from testing_project.protos import demo_pb2, demo_pb2_grpc
 
 
-def test_list_recommendations(grpc_channel):
+@pytest.fixture
+def grpc_channel(recommendation_channel):
+    """Backwards-compatibility alias providing RecommendationService channel."""
+    return recommendation_channel
+
+
+def test_list_recommendations(recommendation_channel):
     """Verifies that RecommendationService returns relevant non-empty recommendations."""
-    stub = demo_pb2_grpc.RecommendationServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.RecommendationServiceStub(recommendation_channel)
     req = demo_pb2.ListRecommendationsRequest(
         user_id="sample-user-456",
         product_ids=["OLJCESPC7Z"]

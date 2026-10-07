@@ -121,7 +121,10 @@ conftest.py
   * playwright_instance, browser, context, and page create isolated Chromium
     browser sessions for browser tests.
   * mobile_page creates an iPhone-sized Playwright context.
-  * grpc_channel supplies an RPC channel to the configured gRPC endpoint.
+  * catalog_channel, cart_channel, currency_channel, recommendation_channel,
+    shipping_channel, payment_channel, checkout_channel, and ad_channel supply
+    dedicated gRPC channels built from the per-service addresses configured in config.py.
+  * grpc_channel supplies a fallback RPC channel to the default gRPC endpoint.
 
 mock_services/mock_grpc_server.py
   A local in-memory implementation of the Online Boutique gRPC interfaces.
@@ -265,7 +268,7 @@ tests/e2e_playwright/test_checkout_workflow.py
   test_complete_checkout_user_journey
     Performs the full shopper workflow: browse, select a product, add quantity
     2, check cart details, enter address/payment information, submit checkout,
-    validate ORD- order ID, TRK- tracking ID, and paid total, then return to
+    validate UUID order ID, [A-Z]{2}-\\d+-\\d+ tracking ID, and paid total, then return to
     the home page.  It is the broadest UI integration test.
 
 tests/e2e_playwright/test_currency_switch.py
@@ -337,12 +340,13 @@ tests/microservices/test_currency_service.py
 tests/microservices/test_payment_service.py
 
   test_charge_valid_credit_card
-    Sends valid payment details and checks the response has a TX- transaction
-    identifier.
+    Sends valid payment details and checks the response has a valid UUID
+    transaction identifier matching paymentservice/charge.js.
 
   test_charge_invalid_credit_card
     Sends an intentionally short card number and expects the gRPC
-    INVALID_ARGUMENT status.
+    UNKNOWN status (since Node's paymentservice passes the CreditCardError back
+    without an explicit status code).
 
 tests/microservices/test_recommendation_service.py
 
@@ -359,7 +363,7 @@ tests/microservices/test_shipping_service.py
 
   test_ship_order
     Sends an address and item, then checks the shipping service returns a
-    TRK- tracking ID.
+    tracking ID matching [A-Z]{2}-\\d+-\\d+ per shippingservice/tracker.go.
 
 
 8. RUNNING THE TESTS

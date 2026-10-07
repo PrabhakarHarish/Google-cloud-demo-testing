@@ -7,9 +7,15 @@ import pytest
 from testing_project.protos import demo_pb2, demo_pb2_grpc
 
 
-def test_cart_add_and_retrieve(grpc_channel):
+@pytest.fixture
+def grpc_channel(cart_channel):
+    """Backwards-compatibility alias providing CartService channel."""
+    return cart_channel
+
+
+def test_cart_add_and_retrieve(cart_channel):
     """Verifies adding items to a user's shopping cart and retrieving cart contents."""
-    stub = demo_pb2_grpc.CartServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.CartServiceStub(cart_channel)
     user_id = f"test-user-{uuid.uuid4().hex[:6]}"
 
     # Add item
@@ -26,9 +32,9 @@ def test_cart_add_and_retrieve(grpc_channel):
     assert cart_item.quantity == 2
 
 
-def test_cart_empty_action(grpc_channel):
+def test_cart_empty_action(cart_channel):
     """Verifies that EmptyCart clears all items from the user's cart."""
-    stub = demo_pb2_grpc.CartServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.CartServiceStub(cart_channel)
     user_id = f"test-user-{uuid.uuid4().hex[:6]}"
 
     # Add item first

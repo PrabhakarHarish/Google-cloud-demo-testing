@@ -93,7 +93,7 @@ The application core (located in `microservices-demo/`) represents Google Cloud'
 
 6. `shippingservice` (Go):
    - Calculates shipping costs based on cart contents and destination address.
-   - Creates and returns tracking numbers (`TRK-...`) upon order placement.
+   - Creates and returns tracking numbers (`[A-Z]{2}-\d+-\d+`, e.g., `AB-12345-678`) upon order placement.
 
 7. `recommendationservice` (Python):
    - Provides product recommendations ("You May Also Like") based on the items
@@ -325,10 +325,11 @@ Files and what they do:
 4. `test_payment_service.py`:
    - `test_charge_valid_credit_card`:
      Submits a valid mock credit card payment via `Charge()`, asserting that a
-     valid transaction ID starting with `"TX-"` is returned.
+     valid UUID transaction ID (from `paymentservice/charge.js`) is returned.
    - `test_charge_invalid_credit_card`:
      Submits an invalid card number and asserts that the service correctly rejects
-     the call with a `StatusCode.INVALID_ARGUMENT` error.
+     the call with a `StatusCode.UNKNOWN` error (as Node's paymentservice passes
+     back `CreditCardError` without an explicit gRPC status code).
 
 5. `test_recommendation_service.py`:
    - `test_list_recommendations`:
@@ -342,7 +343,8 @@ Files and what they do:
      valid, non-negative shipping fee is returned.
    - `test_ship_order`:
      Calls `ShipOrder()` with shipping address and items, verifying that an
-     official tracking ID starting with `"TRK-"` is generated.
+     official tracking ID matching pattern `[A-Z]{2}-\d+-\d+` (e.g., `AB-12345-678`)
+     is generated.
 
 
 --------------------------------------------------------------------------------
@@ -392,7 +394,7 @@ Files and what they do:
      Executes the full shopper workflow: browse home catalog -> select item ->
      add 2 units to cart -> verify cart summary -> fill in shipping address and
      payment credentials -> submit order -> assert order confirmation page
-     displays a valid Order ID (`ORD-...`), Tracking ID (`TRK-...`), and total
+     displays a valid Order ID (UUID), Tracking ID (`[A-Z]{2}-\d+-\d+`), and total
      amount paid -> click "Continue Shopping" to return home.
 
 5. `test_currency_switch.py`:

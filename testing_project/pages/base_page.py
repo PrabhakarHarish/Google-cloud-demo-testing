@@ -1,7 +1,8 @@
 """
 Base Page Object containing common methods and locators across Online Boutique pages.
 """
-from playwright.sync_api import Page, expect
+
+from playwright.sync_api import Page
 from testing_project.config import FRONTEND_URL
 
 

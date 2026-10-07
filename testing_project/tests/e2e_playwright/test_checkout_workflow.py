@@ -2,6 +2,8 @@
 Playwright End-to-End Tests: Complete User Purchase & Checkout Journey.
 Tests end-to-end integration across Frontend, Cart, Recommendation, Shipping, Payment, and Checkout microservices.
 """
+import re
+import uuid
 from playwright.sync_api import Page
 from testing_project.pages.home_page import HomePage
 from testing_project.pages.product_page import ProductPage
@@ -65,10 +67,21 @@ def test_complete_checkout_user_journey(page: Page, base_url):
     tracking_id = order.get_tracking_id()
     total_paid = order.get_total_paid()
 
-    assert order_id.startswith("ORD-"), f"Expected order ID prefix ORD-, got {order_id}"
-    assert tracking_id.startswith("TRK-"), f"Expected tracking ID prefix TRK-, got {tracking_id}"
+    # Checkout returns a UUID order id (checkoutservice/main.go)
+    parsed_uuid = uuid.UUID(order_id)
+    assert str(parsed_uuid) == order_id.lower(), f"Expected order ID to be a valid UUID, got '{order_id}'"
+
+    # Shipping tracking ids look like AB-12345-678 (shippingservice/tracker.go: [A-Z]{2}-\d+-\d+)
+    assert re.match(r"^[A-Z]{2}-\d+-\d+$", tracking_id), f"Expected tracking ID pattern [A-Z]{{2}}-\\d+-\\d+, got '{tracking_id}'"
     assert len(total_paid) > 0, "Total paid amount should not be empty"
 
     # 8. Return to shopping
     order.continue_shopping()
     assert page.url.rstrip("/").endswith(base_url.rstrip("/"))
+
+
+    #stay on the order confirmation page for a few seconds to allow for visual inspection if needed
+    page.wait_for_timeout(3000)  # Wait for 3 seconds
+    page.wait_for_load_state("domcontentloaded")
+    print("Test completed: Full checkout workflow executed successfully.")
+

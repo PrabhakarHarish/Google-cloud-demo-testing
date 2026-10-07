@@ -2,7 +2,7 @@ import os
 import uuid
 from flask import Flask, request, redirect, render_template_string, make_response, send_from_directory
 from testing_project.config import REPO_ROOT
-from testing_project.mock_services.mock_grpc_server import load_catalog_data, load_currency_data
+from testing_project.mock_services.mock_grpc_server import load_catalog_data, load_currency_data, create_tracking_id
 
 app = Flask(__name__, static_folder=str(REPO_ROOT / "src" / "frontend" / "static"))
 app.secret_key = "online-boutique-test-secret-key"
@@ -30,11 +30,13 @@ def format_price(price_usd, target_currency="USD"):
     units = price_usd.get("units", 0)
     nanos = price_usd.get("nanos", 0)
     usd_val = units + (nanos / 1e9)
-    rate = rates.get(target_currency, 1.0)
-    converted = usd_val * rate
+    # currency_conversion.json is EUR-based (EUR = 1.0, USD = 1.1305).
+    # Since catalog prices are denominated in USD, first convert from USD
+    # to the EUR base currency, then from EUR to the target currency.
+    usd_rate = rates.get("USD", 1.1305)
+    target_rate = rates.get(target_currency, 1.0)
+    converted = (usd_val / usd_rate) * target_rate
     sym = CURRENCY_SYMBOLS.get(target_currency, "$")
-    if target_currency == "JPY":
-        return f"{sym}{int(round(converted))}"
     return f"{sym}{converted:.2f}"
 
 def get_session_id(req):
@@ -289,40 +291,51 @@ CART_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
 """)
 
 ORDER_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
-<div class="order py-5 text-center">
-    <div class="order-complete-section card p-5 mx-auto shadow-sm" style="max-width: 650px;">
-        <div class="text-success mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-check-circle-fill text-success" viewBox="0 0 16 16">
-              <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-            </svg>
+<main role="main" class="order py-5">
+    <section class="container order-complete-section" style="max-width: 650px;">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h3>
+                    Your order is complete!
+                </h3>
+            </div>
+            <div class="col-12 text-center">
+                <p>We've sent you a confirmation email.</p>
+            </div>
         </div>
-        <h2 id="order-complete-heading" class="text-success font-weight-bold">Your order is complete!</h2>
-        <p class="lead text-muted">We've sent you a confirmation email with all details.</p>
-        
-        <div class="table-responsive mt-4 text-left">
-            <table class="table table-bordered">
-                <tbody>
-                    <tr>
-                        <th scope="row">Confirmation #</th>
-                        <td id="order-id" class="font-weight-bold">{{ order_id }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Tracking #</th>
-                        <td id="tracking-id" class="text-primary">{{ tracking_id }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Total Paid</th>
-                        <td id="total-paid" class="font-weight-bold text-success">{{ total_paid }}</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="row border-bottom-solid padding-y-24 py-3 border-bottom">
+            <div class="col-6 pl-md-0">
+                Confirmation #
+            </div>
+            <div class="col-6 pr-md-0 text-right text-end">
+                {{ order_id }}
+            </div>
         </div>
-        
-        <div class="mt-4">
-            <a href="/" class="cymbal-button-primary btn btn-primary btn-lg" id="order-continue-shopping">Continue Shopping</a>
+        <div class="row border-bottom-solid padding-y-24 py-3 border-bottom">
+            <div class="col-6 pl-md-0">
+                Tracking #
+            </div>
+            <div class="col-6 pr-md-0 text-right text-end">
+                {{ tracking_id }}
+            </div>
         </div>
-    </div>
-</div>
+        <div class="row padding-y-24 py-3">
+            <div class="col-6 pl-md-0">
+                Total Paid
+            </div>
+            <div class="col-6 pr-md-0 text-right text-end">
+                {{ total_paid }}
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <a class="cymbal-button-primary btn btn-primary" href="/" role="button">
+                    Continue Shopping
+                </a>
+            </div>
+        </div>
+    </section>
+</main>
 """)
 
 
@@ -494,8 +507,9 @@ def checkout():
     # Empty cart on successful order
     CARTS[sid] = []
 
-    order_id = f"ORD-{uuid.uuid4().hex[:8].upper()}"
-    tracking_id = f"TRK-{uuid.uuid4().hex[:8].upper()}"
+    order_id = str(uuid.uuid4())
+    street = request.form.get("street_address", "")
+    tracking_id = create_tracking_id(street)
 
     resp = make_response(render_template_string(
         ORDER_TEMPLATE,

@@ -1,5 +1,6 @@
 import json
 import math
+import random
 import uuid
 from concurrent import futures
 from typing import Dict, List
@@ -49,12 +50,12 @@ def load_currency_data():
             raw = json.load(f)
             return {k: float(v) for k, v in raw.items()}
     return {
-        "USD": 1.0,
-        "EUR": 0.92,
-        "CAD": 1.35,
-        "JPY": 150.0,
-        "GBP": 0.79,
-        "TRY": 32.5
+        "EUR": 1.0,
+        "USD": 1.1305,
+        "JPY": 126.40,
+        "GBP": 0.8597,
+        "CAD": 1.5128,
+        "TRY": 6.1247
     }
 
 
@@ -172,6 +173,15 @@ class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
         return demo_pb2.ListRecommendationsResponse(product_ids=recommended)
 
 
+def create_tracking_id(salt: str = "") -> str:
+    """Generates a tracking ID matching shippingservice/tracker.go: [A-Z]{2}-\\d+-\\d+."""
+    letter1 = chr(65 + random.randint(0, 24))
+    letter2 = chr(65 + random.randint(0, 24))
+    num1 = "".join(str(random.randint(0, 9)) for _ in range(3))
+    num2 = "".join(str(random.randint(0, 9)) for _ in range(7))
+    return f"{letter1}{letter2}-{len(salt)}{num1}-{len(salt) // 2}{num2}"
+
+
 class ShippingService(demo_pb2_grpc.ShippingServiceServicer):
     def GetQuote(self, request, context):
         item_count = sum(item.quantity for item in request.items)
@@ -182,7 +192,8 @@ class ShippingService(demo_pb2_grpc.ShippingServiceServicer):
         )
 
     def ShipOrder(self, request, context):
-        tracking_id = f"TRK-{uuid.uuid4().hex[:8].upper()}"
+        salt = request.address.street_address if request.HasField("address") else ""
+        tracking_id = create_tracking_id(salt)
         return demo_pb2.ShipOrderResponse(tracking_id=tracking_id)
 
 
@@ -191,8 +202,11 @@ class PaymentService(demo_pb2_grpc.PaymentServiceServicer):
         # Validate credit card length
         cc_num = request.credit_card.credit_card_number.replace(" ", "").replace("-", "")
         if len(cc_num) < 13 or len(cc_num) > 19:
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Invalid credit card number")
-        tx_id = f"TX-{uuid.uuid4().hex[:10].upper()}"
+            # paymentservice/charge.js throws CreditCardError (HTTP code 400).
+            # The Node service passes the error back without a gRPC status code,
+            # which @grpc/grpc-js converts to grpc.StatusCode.UNKNOWN.
+            context.abort(grpc.StatusCode.UNKNOWN, "Credit card info is invalid")
+        tx_id = str(uuid.uuid4())
         return demo_pb2.ChargeResponse(transaction_id=tx_id)
 
 
@@ -202,8 +216,10 @@ class CheckoutService(demo_pb2_grpc.CheckoutServiceServicer):
         self.catalog_service = catalog_service
 
     def PlaceOrder(self, request, context):
-        order_id = f"ORD-{uuid.uuid4().hex[:8].upper()}"
-        tracking_id = f"TRK-{uuid.uuid4().hex[:8].upper()}"
+        # CheckoutService returns a UUID order id (checkoutservice/main.go)
+        order_id = str(uuid.uuid4())
+        salt = request.address.street_address if request.HasField("address") else ""
+        tracking_id = create_tracking_id(salt)
 
         # Calculate total
         total_units = 25

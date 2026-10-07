@@ -37,3 +37,10 @@ class HomePage(BasePage):
     def click_product_by_name(self, name: str):
         self.page.locator(f".hot-product-card:has-text('{name}') a[href*='/product/']").first.click()
         self.page.wait_for_load_state("domcontentloaded")
+
+
+
+    def click_product_by_partial_name(self, partial_name: str):
+        self.page.locator(f".hot-product-card:has-text('{partial_name}') a[href*='/product/']").first.click()
+        self.page.wait_for_load_state("domcontentloaded")
+

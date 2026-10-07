@@ -7,9 +7,15 @@ import pytest
 from testing_project.protos import demo_pb2, demo_pb2_grpc
 
 
-def test_list_products(grpc_channel):
+@pytest.fixture
+def grpc_channel(catalog_channel):
+    """Backwards-compatibility alias providing ProductCatalogService channel."""
+    return catalog_channel
+
+
+def test_list_products(catalog_channel):
     """Verifies that ListProducts returns all catalog products with required fields."""
-    stub = demo_pb2_grpc.ProductCatalogServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.ProductCatalogServiceStub(catalog_channel)
     response = stub.ListProducts(demo_pb2.Empty())
 
     assert len(response.products) > 0, "Catalog should contain products"
@@ -20,9 +26,9 @@ def test_list_products(grpc_channel):
     assert first.price_usd.units >= 0
 
 
-def test_get_product_by_id(grpc_channel):
+def test_get_product_by_id(catalog_channel):
     """Verifies fetching an existing product by unique ID."""
-    stub = demo_pb2_grpc.ProductCatalogServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.ProductCatalogServiceStub(catalog_channel)
     # First get catalog list
     list_resp = stub.ListProducts(demo_pb2.Empty())
     target_id = list_resp.products[0].id
@@ -32,17 +38,17 @@ def test_get_product_by_id(grpc_channel):
     assert len(product.name) > 0
 
 
-def test_get_product_not_found(grpc_channel):
+def test_get_product_not_found(catalog_channel):
     """Verifies that querying a non-existent product ID returns NOT_FOUND status code."""
-    stub = demo_pb2_grpc.ProductCatalogServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.ProductCatalogServiceStub(catalog_channel)
     with pytest.raises(grpc.RpcError) as exc_info:
         stub.GetProduct(demo_pb2.GetProductRequest(id="NON_EXISTENT_SKU_123"))
     assert exc_info.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_search_products(grpc_channel):
+def test_search_products(catalog_channel):
     """Verifies product searching functionality by text query."""
-    stub = demo_pb2_grpc.ProductCatalogServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.ProductCatalogServiceStub(catalog_channel)
     response = stub.SearchProducts(demo_pb2.SearchProductsRequest(query="sun"))
 
     assert len(response.results) > 0

@@ -2,13 +2,20 @@
 gRPC Contract & Service Tests: ShippingService.
 Tests gRPC RPC methods: GetQuote, ShipOrder.
 """
+import re
 import pytest
 from testing_project.protos import demo_pb2, demo_pb2_grpc
 
 
-def test_get_shipping_quote(grpc_channel):
+@pytest.fixture
+def grpc_channel(shipping_channel):
+    """Backwards-compatibility alias providing ShippingService channel."""
+    return shipping_channel
+
+
+def test_get_shipping_quote(shipping_channel):
     """Verifies that ShippingService calculates accurate quotes based on cart items."""
-    stub = demo_pb2_grpc.ShippingServiceStub(grpc_channel)
+    stub = demo_pb2_grpc.ShippingServiceStub(shipping_channel)
     address = demo_pb2.Address(
         street_address="1600 Amphitheatre Pkwy",
         city="Mountain View",
@@ -27,9 +34,9 @@ def test_get_shipping_quote(grpc_channel):
     assert quote.cost_usd.units >= 0
 
 
-def test_ship_order(grpc_channel):
-    """Verifies that ShipOrder generates a valid tracking identifier for confirmed orders."""
-    stub = demo_pb2_grpc.ShippingServiceStub(grpc_channel)
+def test_ship_order(shipping_channel):
+    """Verifies that ShipOrder generates a valid tracking identifier (format: [A-Z]{2}-\\d+-\\d+ per shippingservice/tracker.go)."""
+    stub = demo_pb2_grpc.ShippingServiceStub(shipping_channel)
     address = demo_pb2.Address(
         street_address="1600 Amphitheatre Pkwy",
         city="Mountain View",
@@ -41,4 +48,5 @@ def test_ship_order(grpc_channel):
     req = demo_pb2.ShipOrderRequest(address=address, items=items)
     resp = stub.ShipOrder(req)
 
-    assert resp.tracking_id.startswith("TRK-")
+    # Shipping tracking ids look like AB-12345-678 (shippingservice/tracker.go)
+    assert re.match(r"^[A-Z]{2}-\d+-\d+$", resp.tracking_id), f"Unexpected tracking ID format: {resp.tracking_id}"

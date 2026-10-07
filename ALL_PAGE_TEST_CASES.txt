@@ -266,8 +266,8 @@ TC-ORD-02 - Confirmation identifiers use expected formats
 Precondition: Successful order confirmation is displayed.
 Steps:
   1. Read Confirmation # and Tracking #.
-Expected result: The order ID starts with "ORD-" and the tracking ID starts
-with "TRK-".
+Expected result: The Confirmation # (order ID) is a valid UUID and the
+Tracking # matches pattern [A-Z]{2}-\\d+-\\d+ (e.g., AB-12345-678).
 What this test does: It validates the UI is displaying values from the order
 and shipping stages in their expected, recognizable formats. It does not try
 to predict the random identifier suffix.
@@ -421,7 +421,7 @@ Steps:
   3. Verify the product, quantity, shipping, and total in the cart.
   4. Enter valid shipping and payment details.
   5. Place the order.
-  6. Verify order-complete message, ORD- confirmation ID, TRK- tracking ID,
+  6. Verify order-complete message, UUID confirmation ID, [A-Z]{2}-\\d+-\\d+ tracking ID,
      and paid total.
   7. Select Continue Shopping and verify Home opens.
 Expected result: Every transition succeeds with the same shopper session and
@@ -431,4 +431,9 @@ the shopper-visible integration between catalog, cart, recommendations,
 currency, shipping, payment, checkout, and order confirmation behavior.
 
 
-gRPC is nothing but the google remote procedure call nothing but the microservices that is included in the cloud testing itself.
+gRPC is nothing but the Google remote procedure call nothing but the microservices that is included in the cloud testing itself.
+
+google remote procedure call is nothing but the microservices that is included in the cloud testing itself.
+It is open source framework that completes the entire components that includes the microservices and the cloud testing.
+
+google remote procedure call
